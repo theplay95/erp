@@ -1,0 +1,615 @@
+-- Adminer 4.8.1 MySQL 9.4.0 dump
+
+SET NAMES utf8;
+SET time_zone = '+00:00';
+SET foreign_key_checks = 0;
+SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
+
+SET NAMES utf8mb4;
+
+DROP DATABASE IF EXISTS `erp_system`;
+CREATE DATABASE `erp_system` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `erp_system`;
+
+DROP TABLE IF EXISTS `audit_logs`;
+CREATE TABLE `audit_logs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `action` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `table_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `record_id` int DEFAULT NULL,
+  `old_values` json DEFAULT NULL,
+  `new_values` json DEFAULT NULL,
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `cash_movements`;
+CREATE TABLE `cash_movements` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `register_id` int NOT NULL,
+  `type` enum('in','out') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `register_id` (`register_id`),
+  CONSTRAINT `cash_movements_ibfk_1` FOREIGN KEY (`register_id`) REFERENCES `cash_registers` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `cash_registers`;
+CREATE TABLE `cash_registers` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `initial_amount` decimal(10,2) NOT NULL,
+  `current_amount` decimal(10,2) NOT NULL,
+  `final_amount` decimal(10,2) DEFAULT NULL,
+  `difference` decimal(10,2) DEFAULT NULL,
+  `status` enum('open','closed') COLLATE utf8mb4_unicode_ci DEFAULT 'open',
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `opened_at` timestamp NULL DEFAULT NULL,
+  `closed_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `cash_registers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `categories`;
+CREATE TABLE `categories` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `categories` (`id`, `name`, `description`, `created_at`) VALUES
+(1,	'Alimentação',	'Produtos alimentícios',	'2025-06-23 00:23:00'),
+(2,	'Bebidas',	'Bebidas em geral',	'2025-06-23 00:23:00'),
+(3,	'Limpeza',	'Produtos de limpeza',	'2025-06-23 00:23:00'),
+(4,	'Higiene',	'Produtos de higiene pessoal',	'2025-06-23 00:23:00'),
+(5,	'Diversos',	'Produtos diversos',	'2025-06-23 00:23:00')
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `name` = VALUES(`name`), `description` = VALUES(`description`), `created_at` = VALUES(`created_at`);
+
+DROP TABLE IF EXISTS `customers`;
+CREATE TABLE `customers` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `email` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `address` text COLLATE utf8mb4_unicode_ci,
+  `birth_date` date DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `delivery_orders`;
+CREATE TABLE `delivery_orders` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `sale_id` int NOT NULL,
+  `delivery_address` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `customer_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `delivery_fee` decimal(10,2) DEFAULT '0.00',
+  `delivery_status` enum('pendente','preparando','enviado','entregue','cancelado') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pendente',
+  `delivery_person` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `estimated_time` int DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `delivered_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `sale_id` (`sale_id`),
+  CONSTRAINT `delivery_orders_ibfk_1` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `financial_transactions`;
+CREATE TABLE `financial_transactions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `type` enum('income','expense') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `reference_type` enum('sale','purchase','manual','salary','tax','other') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reference_id` int DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `financial_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `inventory_adjustments`;
+CREATE TABLE `inventory_adjustments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `product_id` int NOT NULL,
+  `old_quantity` int NOT NULL,
+  `new_quantity` int NOT NULL,
+  `reason` text COLLATE utf8mb4_unicode_ci,
+  `user_id` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `product_id` (`product_id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `inventory_adjustments_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  CONSTRAINT `inventory_adjustments_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `products`;
+CREATE TABLE `products` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `stock` int NOT NULL,
+  `category` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `image` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `products` (`id`, `name`, `price`, `stock`, `category`, `description`, `image`, `created_at`) VALUES
+(1,	'HAMBUGUER CLÁSSICO',	19.99,	4936,	'Lanches',	'',	'68589e9ee1ed1.png',	'2025-06-23 00:23:57'),
+(2,	'COSTELA CREMOSA',	19.99,	4981,	'Lanches',	'',	'6859a31ec5591.png',	'2025-06-23 12:36:20'),
+(3,	'PORQUINHO DEFUMADO',	19.99,	4995,	'Lanches',	'',	'6859a348da330.png',	'2025-06-23 12:36:49'),
+(4,	'FRANGO DEFUMADO',	19.99,	4997,	'Lanches',	'',	'6859a333b20aa.png',	'2025-06-23 12:37:12'),
+(5,	'COCA COLA 2LT',	14.99,	497,	'Bebidas',	'',	'6859a21cbcaf8.png',	'2025-06-23 12:41:48'),
+(6,	'FANTA 2LT',	14.99,	497,	'Bebidas',	'',	'6859a28de9eb2.png',	'2025-06-23 12:42:18'),
+(7,	'COCA COLA ZERO 1,5LT',	12.00,	496,	'Bebidas',	'',	'6859a24aceeb5.png',	'2025-06-23 12:42:43'),
+(8,	'COCA COLA 1,5LT',	12.00,	495,	'Bebidas',	'',	'6859a15003e0b.png',	'2025-06-23 12:43:04'),
+(9,	'COCA COLA ZERO LT 350ML',	5.99,	493,	'Bebidas',	'',	'6859a259bc58a.png',	'2025-06-23 12:43:40'),
+(10,	'COCA COLA LT 350ML',	5.99,	496,	'Bebidas',	'',	'6859a22db55c8.png',	'2025-06-23 12:49:44'),
+(11,	'AGUA MINERAL LINDAGUA C/ GÁS 500ML',	2.99,	493,	'Bebidas',	'',	'6859a12ae11a4.png',	'2025-06-23 12:50:55'),
+(12,	'SUCO NATURAL ONE 300ML',	10.99,	499,	'Bebidas',	'',	'6859a2f7a5156.png',	'2025-06-23 12:51:28'),
+(13,	'ENERGETICO RED BULL 250ML',	14.99,	499,	'Bebidas',	'',	'6859a27ab0675.png',	'2025-06-23 12:51:55'),
+(14,	'SMASH',	14.99,	4976,	'LANCHES',	'PÃO BRIOCHE 2UN HAMBURGUER 80G BACON E QUEIJO CHEDDAR',	'6862f75845c14.png',	'2025-06-28 22:33:39'),
+(15,	'ESPETINHO DE CARNE SIMPLES',	15.00,	0,	'ESPETINHO',	'MACAXEIRA E FAROFA',	'6869850e99393.png',	'2025-07-05 19:09:44'),
+(16,	'ESPETINHO DE FRANGO SIMPLES',	15.00,	0,	'ESPETINHO',	'MACAXEIRA E FAROFA',	'6869865a556c7.png',	'2025-07-05 19:11:29'),
+(17,	'ESPETINHO DE MEDALHÃO DE CARNE SIMPLES',	17.00,	0,	'ESPETINHO',	'MACAXEIRA E FAROFA',	'686988522583a.png',	'2025-07-05 19:12:30'),
+(18,	'ESPETINHO DE MEDALHÃO DE FRANGO SIMPLES',	17.00,	0,	'ESPETINHO',	'MACAXEIRA E FAROFA',	'686989bf7fa6b.png',	'2025-07-05 19:14:12'),
+(19,	'ESPETINHO COMPLETO',	25.00,	0,	'ESPETINHO',	'ARROZ OU BAIÃO MACAXEIRA FAROFA E VINAGRETE',	'68698325643fc.png',	'2025-07-05 19:21:12'),
+(20,	'ESPETINHO DE PICANHA COMPLETO',	30.00,	0,	'ESPETINHO',	'ARROZ OU BAIÃO MACAXEIRA FAROFA E VINAGRETE',	'68698aee97057.png',	'2025-07-05 19:23:17'),
+(21,	'ESPETINHO DE PICANHA SIMPLES',	20.00,	0,	'ESPETINHO',	'MACAXEIRA E FAROFA',	'68698cc0bbcf5.png',	'2025-07-05 19:27:34'),
+(22,	'VATAPÁ',	5.00,	0,	'ESPETINHO',	'',	'686990a13f046.png',	'2025-07-05 19:31:31'),
+(23,	'ESPETINHO COM VATAPÁ E ARROZ',	20.00,	0,	'ESPETINHO',	'',	'686980d715bb7.png',	'2025-07-05 19:32:58'),
+(24,	'ESPETINHO DE CORAÇÃO DE FRANGO SIMPLES',	17.00,	0,	'ESPETINHO',	'MACAXEIRA E FAROFA\r\n\r\n\r\n',	'68699035c8d66.png',	'2025-07-05 20:32:10')
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `name` = VALUES(`name`), `price` = VALUES(`price`), `stock` = VALUES(`stock`), `category` = VALUES(`category`), `description` = VALUES(`description`), `image` = VALUES(`image`), `created_at` = VALUES(`created_at`);
+
+DROP TABLE IF EXISTS `promotion_products`;
+CREATE TABLE `promotion_products` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `promotion_id` int NOT NULL,
+  `product_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `promotion_id` (`promotion_id`),
+  KEY `product_id` (`product_id`),
+  CONSTRAINT `promotion_products_ibfk_1` FOREIGN KEY (`promotion_id`) REFERENCES `promotions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `promotion_products_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `promotions`;
+CREATE TABLE `promotions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `discount_type` enum('percentage','fixed') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `discount_value` decimal(10,2) NOT NULL,
+  `start_date` datetime DEFAULT NULL,
+  `end_date` datetime DEFAULT NULL,
+  `active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `purchase_items`;
+CREATE TABLE `purchase_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `purchase_order_id` int NOT NULL,
+  `product_id` int NOT NULL,
+  `quantity` int NOT NULL,
+  `cost_price` decimal(10,2) NOT NULL,
+  `received_quantity` int DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `purchase_order_id` (`purchase_order_id`),
+  KEY `product_id` (`product_id`),
+  CONSTRAINT `purchase_items_ibfk_1` FOREIGN KEY (`purchase_order_id`) REFERENCES `purchase_orders` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `purchase_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `purchase_orders`;
+CREATE TABLE `purchase_orders` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `supplier_id` int DEFAULT NULL,
+  `total` decimal(10,2) NOT NULL,
+  `status` enum('pendente','confirmado','recebido','cancelado') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pendente',
+  `order_date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `received_date` timestamp NULL DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `user_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `supplier_id` (`supplier_id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `purchase_orders_ibfk_1` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`),
+  CONSTRAINT `purchase_orders_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `sale_items`;
+CREATE TABLE `sale_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `sale_id` int DEFAULT NULL,
+  `product_id` int DEFAULT NULL,
+  `quantity` int DEFAULT NULL,
+  `price` decimal(10,2) DEFAULT NULL,
+  `discount` decimal(10,2) DEFAULT '0.00',
+  PRIMARY KEY (`id`),
+  KEY `sale_id` (`sale_id`),
+  KEY `product_id` (`product_id`),
+  CONSTRAINT `sale_items_ibfk_1` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`),
+  CONSTRAINT `sale_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `sale_items` (`id`, `sale_id`, `product_id`, `quantity`, `price`, `discount`) VALUES
+(40,	22,	2,	1,	19.99,	0.00),
+(41,	22,	1,	2,	19.99,	0.00),
+(42,	23,	2,	1,	19.99,	0.00),
+(43,	23,	1,	1,	19.99,	0.00),
+(45,	23,	9,	2,	5.99,	0.00),
+(46,	24,	1,	2,	19.99,	0.00),
+(47,	25,	14,	4,	14.99,	0.00),
+(48,	25,	5,	1,	12.99,	0.00),
+(49,	26,	14,	1,	14.99,	0.00),
+(50,	26,	9,	1,	5.99,	0.00),
+(51,	27,	14,	1,	14.99,	0.00),
+(52,	28,	14,	2,	14.99,	0.00),
+(53,	28,	1,	2,	19.99,	0.00),
+(54,	29,	14,	1,	14.99,	0.00),
+(55,	30,	2,	1,	19.99,	0.00),
+(56,	31,	1,	1,	19.99,	0.00),
+(57,	31,	14,	1,	14.99,	0.00),
+(58,	32,	14,	4,	14.99,	0.00),
+(60,	33,	14,	2,	14.99,	0.00),
+(61,	34,	14,	2,	14.99,	0.00),
+(62,	35,	2,	1,	19.99,	0.00),
+(63,	35,	1,	1,	19.99,	0.00),
+(64,	35,	9,	1,	5.99,	0.00),
+(65,	36,	2,	1,	19.99,	0.00),
+(66,	36,	1,	1,	19.99,	0.00),
+(67,	36,	14,	1,	14.99,	0.00),
+(68,	37,	14,	2,	14.99,	0.00),
+(69,	37,	2,	1,	19.99,	0.00),
+(70,	37,	1,	1,	19.99,	0.00),
+(71,	37,	9,	1,	5.99,	0.00),
+(72,	38,	11,	1,	3.99,	0.00),
+(73,	39,	1,	1,	24.99,	0.00),
+(74,	40,	1,	2,	24.99,	0.00),
+(75,	40,	22,	1,	5.00,	0.00),
+(76,	40,	19,	1,	25.00,	0.00),
+(77,	41,	20,	2,	30.00,	0.00),
+(78,	42,	20,	1,	30.00,	0.00),
+(79,	42,	15,	2,	15.00,	0.00),
+(80,	42,	24,	1,	17.00,	0.00),
+(81,	42,	22,	1,	5.00,	0.00),
+(82,	43,	1,	4,	24.99,	0.00),
+(83,	44,	1,	1,	24.99,	0.00),
+(84,	45,	1,	1,	24.99,	0.00),
+(85,	45,	20,	1,	30.00,	0.00),
+(86,	46,	19,	1,	25.00,	0.00),
+(87,	46,	1,	1,	24.99,	0.00),
+(88,	47,	19,	2,	25.00,	0.00),
+(89,	48,	24,	1,	17.00,	0.00),
+(90,	48,	17,	2,	17.00,	0.00),
+(91,	48,	23,	1,	20.00,	0.00),
+(92,	48,	15,	1,	15.00,	0.00),
+(93,	49,	15,	1,	15.00,	0.00),
+(94,	49,	1,	1,	24.99,	0.00),
+(95,	50,	19,	1,	25.00,	0.00),
+(96,	51,	15,	2,	15.00,	0.00),
+(97,	51,	24,	2,	17.00,	0.00),
+(98,	52,	15,	1,	15.00,	0.00),
+(99,	52,	19,	1,	25.00,	0.00),
+(100,	53,	19,	2,	25.00,	0.00),
+(101,	54,	1,	1,	24.99,	0.00),
+(102,	55,	1,	1,	24.99,	0.00),
+(103,	56,	23,	1,	20.00,	0.00),
+(104,	56,	15,	3,	15.00,	0.00),
+(105,	57,	24,	1,	17.00,	0.00),
+(106,	57,	21,	1,	20.00,	0.00),
+(107,	58,	23,	1,	20.00,	0.00),
+(108,	59,	21,	2,	20.00,	0.00),
+(109,	59,	24,	1,	17.00,	0.00),
+(110,	59,	17,	1,	17.00,	0.00),
+(111,	60,	17,	2,	17.00,	0.00),
+(112,	61,	19,	1,	25.00,	0.00),
+(113,	62,	19,	1,	25.00,	0.00),
+(114,	62,	20,	1,	30.00,	0.00),
+(115,	63,	19,	2,	25.00,	0.00),
+(116,	63,	16,	2,	15.00,	0.00),
+(117,	64,	24,	1,	17.00,	0.00),
+(118,	65,	15,	1,	15.00,	0.00),
+(119,	66,	15,	1,	15.00,	0.00),
+(120,	67,	19,	2,	25.00,	0.00),
+(121,	68,	15,	2,	15.00,	0.00),
+(122,	69,	17,	2,	17.00,	0.00),
+(123,	69,	23,	1,	20.00,	0.00),
+(124,	70,	17,	1,	17.00,	0.00),
+(125,	71,	17,	1,	17.00,	0.00),
+(126,	71,	19,	1,	25.00,	0.00),
+(127,	72,	20,	2,	30.00,	0.00),
+(128,	73,	19,	2,	25.00,	0.00),
+(129,	73,	16,	1,	15.00,	0.00),
+(130,	74,	1,	1,	24.99,	0.00),
+(131,	75,	15,	1,	15.00,	0.00),
+(132,	76,	16,	2,	15.00,	0.00),
+(133,	77,	19,	1,	25.00,	0.00),
+(134,	78,	1,	1,	24.99,	0.00),
+(135,	79,	19,	1,	25.00,	0.00),
+(136,	80,	22,	1,	5.00,	0.00),
+(137,	81,	21,	1,	20.00,	0.00),
+(138,	82,	15,	2,	15.00,	0.00),
+(139,	83,	19,	1,	25.00,	0.00),
+(140,	83,	15,	1,	15.00,	0.00),
+(141,	84,	21,	1,	20.00,	0.00),
+(142,	85,	1,	1,	24.99,	0.00),
+(143,	86,	1,	1,	24.99,	0.00),
+(144,	87,	15,	1,	15.00,	0.00),
+(145,	88,	15,	2,	15.00,	0.00),
+(146,	89,	22,	1,	5.00,	0.00),
+(147,	89,	19,	1,	25.00,	0.00),
+(148,	90,	15,	3,	15.00,	0.00),
+(149,	91,	19,	1,	25.00,	0.00),
+(150,	91,	1,	3,	24.99,	0.00),
+(151,	92,	19,	6,	25.00,	0.00),
+(152,	92,	21,	1,	20.00,	0.00),
+(153,	92,	22,	3,	5.00,	0.00),
+(154,	92,	20,	1,	30.00,	0.00),
+(155,	92,	1,	1,	24.99,	0.00),
+(156,	93,	14,	4,	14.99,	0.00),
+(157,	93,	5,	1,	12.99,	0.00),
+(158,	94,	2,	1,	19.99,	0.00),
+(159,	95,	1,	1,	19.99,	0.00),
+(160,	95,	9,	1,	4.59,	0.00),
+(161,	94,	9,	1,	4.59,	0.00),
+(162,	96,	2,	1,	19.99,	0.00),
+(163,	96,	4,	1,	19.99,	0.00),
+(164,	96,	1,	4,	19.99,	0.00),
+(165,	97,	2,	1,	19.99,	0.00),
+(166,	97,	1,	2,	19.99,	0.00),
+(167,	98,	1,	2,	19.99,	0.00),
+(168,	99,	14,	1,	14.99,	0.00),
+(169,	99,	1,	1,	19.99,	0.00),
+(170,	99,	10,	1,	5.99,	0.00),
+(171,	100,	14,	3,	14.99,	0.00),
+(172,	100,	5,	1,	14.99,	0.00),
+(173,	101,	2,	2,	19.99,	0.00),
+(174,	102,	14,	2,	14.99,	0.00),
+(175,	102,	1,	1,	19.99,	0.00),
+(176,	103,	2,	1,	19.99,	0.00),
+(177,	103,	1,	1,	19.99,	0.00),
+(178,	104,	1,	1,	19.99,	0.00),
+(179,	104,	14,	1,	14.99,	0.00),
+(180,	105,	2,	1,	19.99,	0.00),
+(181,	105,	1,	1,	19.99,	0.00),
+(182,	106,	14,	1,	14.99,	0.00),
+(183,	106,	1,	2,	19.99,	0.00),
+(184,	107,	1,	1,	19.99,	0.00),
+(185,	107,	14,	1,	14.99,	0.00),
+(186,	108,	1,	1,	19.99,	0.00),
+(187,	108,	14,	1,	14.99,	0.00),
+(188,	103,	7,	1,	12.00,	0.00),
+(189,	109,	1,	2,	19.99,	0.00),
+(190,	103,	10,	1,	6.50,	0.00),
+(191,	110,	14,	1,	14.99,	0.00),
+(192,	110,	1,	2,	19.99,	0.00),
+(208,	119,	14,	5,	14.99,	0.00)
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `sale_id` = VALUES(`sale_id`), `product_id` = VALUES(`product_id`), `quantity` = VALUES(`quantity`), `price` = VALUES(`price`), `discount` = VALUES(`discount`);
+
+DROP TABLE IF EXISTS `sales`;
+CREATE TABLE `sales` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `total` decimal(10,2) NOT NULL,
+  `payment_method` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `customer_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `customer_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `delivery_address` text COLLATE utf8mb4_unicode_ci,
+  `delivery_fee` decimal(10,2) DEFAULT '0.00',
+  `observations` text COLLATE utf8mb4_unicode_ci,
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pendente',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `user_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `sales_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `sales` (`id`, `total`, `payment_method`, `customer_name`, `customer_phone`, `delivery_address`, `delivery_fee`, `observations`, `status`, `created_at`, `user_id`) VALUES
+(22,	59.97,	'pix',	'LAIANE',	'999519344',	'',	0.00,	NULL,	'entregue',	'2025-06-28 21:48:38',	1),
+(23,	66.96,	'pix',	'TAIS PAIVA ',	'992997629',	'RUA NOVO HORIZONTE 5261 NOVA ESPERANÇA',	15.00,	NULL,	'entregue',	'2025-06-30 16:10:10',	1),
+(24,	47.98,	'pix',	'MAIRA',	'69981482222',	'RUA ARRUDA FONTES CABRAL 1269 AGENOR DE CARVALHO',	8.00,	NULL,	'entregue',	'2025-06-30 16:10:22',	1),
+(25,	72.95,	'dinheiro',	'ALAN ',	'69981156993',	'',	0.00,	NULL,	'pendente',	'2025-06-30 17:51:44',	1),
+(26,	20.98,	'cartao credito',	'CLIENTE ',	'',	'',	0.00,	NULL,	'entregue',	'2025-06-28 19:42:59',	1),
+(27,	14.99,	'dinheiro',	'FERNANDA AÇOUGUE',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-28 19:45:46',	1),
+(28,	69.96,	'pix',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-28 21:39:07',	1),
+(29,	14.99,	'dinheiro',	'ELISA',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-28 20:07:06',	1),
+(30,	19.99,	'dinheiro',	'JHONA',	'',	'',	0.00,	NULL,	'entregue',	'2025-06-28 21:38:05',	1),
+(31,	34.98,	'cartao',	'MAIA',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-28 21:50:40',	1),
+(32,	59.96,	'dinheiro',	'DAIANE E VITOR',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-28 21:06:42',	1),
+(33,	29.98,	'dinheiro',	'MAYCON',	'992211868',	'',	0.00,	NULL,	'pendente',	'2025-06-28 20:56:03',	1),
+(34,	29.98,	'dinheiro',	'MICHELLY',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-28 20:59:42',	1),
+(35,	51.97,	'pix',	'BRUNO PAIVA',	'69992759586',	'RUA ARUBA 7955 BAIRO TANCRDO NEVES',	6.00,	NULL,	'entregue',	'2025-06-30 16:09:53',	1),
+(36,	54.97,	'dinheiro',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-28 21:21:50',	1),
+(37,	75.95,	'dinheiro',	'MANOEL',	'',	'',	0.00,	NULL,	'pendente',	'2025-06-30 16:23:59',	1),
+(38,	3.99,	'dinheiro',	'teste',	'',	'',	0.00,	NULL,	'cancelado',	'2025-07-05 20:56:50',	1),
+(39,	24.99,	'cartao debito',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-05 23:03:58',	1),
+(40,	79.98,	'cartao credito',	'Fernando ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:12:19',	1),
+(41,	60.00,	'cartao credito',	'Carlos lima',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-05 23:35:18',	1),
+(42,	82.00,	'cartao credito',	'Elisio',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:19:17',	1),
+(43,	99.96,	'dinheiro',	'Alan',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-05 23:45:04',	1),
+(44,	24.99,	'cartao credito',	'Elisio adicional',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:53:57',	1),
+(45,	54.99,	'cartao credito',	'Paula Ravani',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-05 23:54:51',	1),
+(46,	49.99,	'cartao credito',	'Rafael Brito',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:00:53',	1),
+(47,	50.00,	'dinheiro',	'Cley',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:02:22',	1),
+(48,	86.00,	'cartao debito',	'Thiago Patta',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:02:32',	1),
+(49,	39.99,	'pix',	'Bruno',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:07:45',	1),
+(50,	25.00,	'pix',	'Elena',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:08:50',	1),
+(51,	64.00,	'cartao credito',	'Augusto',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:14:25',	1),
+(52,	40.00,	'pix',	'Ana ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:16:34',	1),
+(53,	50.00,	'pix',	'Meire',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:18:14',	1),
+(54,	24.99,	'cartao debito',	'Arthur',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:19:43',	1),
+(55,	24.99,	'cartao debito',	'marcia',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:23:34',	1),
+(56,	65.00,	'pix',	'Edu Olanda',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:26:45',	1),
+(57,	37.00,	'cartao credito',	'Gabriel FA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:32:40',	1),
+(58,	20.00,	'dinheiro',	'Edu Olanda',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:34:05',	1),
+(59,	74.00,	'pix',	'Ana',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:34:59',	1),
+(60,	34.00,	'cartao debito',	'Carlos Arthur',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:36:30',	1),
+(61,	25.00,	'cartao credito',	'Fernanda Queiroz ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:41:26',	1),
+(62,	55.00,	'cartao debito',	'Marcos ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:43:00',	1),
+(63,	80.00,	'cartao credito',	'marcelo ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:46:49',	1),
+(64,	17.00,	'cartao credito',	'AUGUSTO',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:50:08',	1),
+(65,	15.00,	'cartao credito',	'ANA BEATRIZ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:52:03',	1),
+(66,	15.00,	'cartao credito',	'MARIA LARA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:52:28',	1),
+(67,	50.00,	'pix',	'MATHEUS',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 00:54:35',	1),
+(68,	30.00,	'dinheiro',	'MATHEUS',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:01:21',	1),
+(69,	54.00,	'cartao debito',	'LUIS cARLOS - CASA DA LORENA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:03:44',	1),
+(70,	17.00,	'cartao credito',	'pAULO MAL PASSADO',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:10:29',	1),
+(71,	42.00,	'cartao credito',	'LUCIANA ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:12:50',	1),
+(72,	60.00,	'cartao credito',	'LORENA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:14:27',	1),
+(73,	65.00,	'cartao credito',	'YAISSA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:17:59',	1),
+(74,	24.99,	'pix',	'DANIELA BLUSA PRETA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:20:16',	1),
+(75,	15.00,	'pix',	'JANE ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:21:41',	1),
+(76,	30.00,	'pix',	'ALICE BLUSA DE FLOR',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:28:09',	1),
+(77,	25.00,	'cartao credito',	'AMANDA BLUSA BRANCA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:30:15',	1),
+(78,	24.99,	'dinheiro',	'CADU ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:35:09',	1),
+(79,	25.00,	'cartao debito',	'ARTHUR',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:36:04',	1),
+(80,	5.00,	'pix',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:41:18',	1),
+(81,	20.00,	'cartao credito',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 01:46:41',	1),
+(82,	30.00,	'dinheiro',	'aNA BEATRIZ BLUSA PRETA ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:04:19',	1),
+(83,	40.00,	'cartao debito',	'MAICON',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:06:43',	1),
+(84,	20.00,	'pix',	'DAIANE ',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:07:42',	1),
+(85,	24.99,	'cartao debito',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:17:51',	1),
+(86,	24.99,	'cartao credito',	'CLEY',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:22:29',	1),
+(87,	15.00,	'cartao credito',	'PAULO',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:32:29',	1),
+(88,	30.00,	'cartao credito',	'MARCELO',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:45:24',	1),
+(89,	30.00,	'dinheiro',	'MOÇO DO PEIXE',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 02:46:58',	1),
+(90,	45.00,	'cartao debito',	'FABIO xadrez vermelha',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 03:01:49',	1),
+(91,	99.97,	'pix',	'amg manu',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 03:28:10',	1),
+(92,	239.99,	'dinheiro',	'funcionarios',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-06 03:27:06',	1),
+(93,	72.95,	'dinheiro',	'ALAN DE OLIVEIRA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-12 22:00:46',	1),
+(94,	24.58,	'dinheiro',	'DEISEANE',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-12 22:22:12',	1),
+(95,	24.58,	'pix',	'ANY LUCILA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-12 22:21:08',	1),
+(96,	133.94,	'pix',	'CLAUDIA',	'699 97165572',	'AVENIDA RIO MADEIRA 6739 CONDOMINO JEQUITIBÁ CASA 8',	14.00,	NULL,	'pendente',	'2025-07-12 23:08:47',	1),
+(97,	69.97,	'cartao debito',	'FELIPE',	'69992438400',	'RUA PAULO FORTES 6912',	10.00,	NULL,	'pendente',	'2025-07-12 23:16:52',	1),
+(98,	39.98,	'dinheiro',	'RAQUEL',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-12 23:52:23',	1),
+(99,	40.97,	'dinheiro',	'HENRIQUE',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 00:15:53',	1),
+(100,	59.96,	'pix',	'MAICON',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 00:20:36',	1),
+(101,	39.98,	'dinheiro',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 00:42:48',	1),
+(102,	49.97,	'dinheiro',	'GABRIEL',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 00:48:57',	1),
+(103,	58.48,	'cartao debito',	'YAISSA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 02:02:07',	1),
+(104,	34.98,	'cartao credito',	'CLAUDIA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 01:55:49',	1),
+(105,	39.98,	'dinheiro',	'LETICIA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 00:55:06',	1),
+(106,	54.97,	'dinheiro',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 01:07:27',	1),
+(107,	34.98,	'dinheiro',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 01:56:18',	1),
+(108,	34.98,	'dinheiro',	'',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 01:56:55',	1),
+(109,	39.98,	'dinheiro',	'MAIA',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 01:58:57',	1),
+(110,	54.97,	'dinheiro',	'CONSUMO',	'',	'',	0.00,	NULL,	'pendente',	'2025-07-13 02:02:48',	1),
+(119,	74.95,	'dinheiro',	'ALAN',	'69981156993',	'ariquemes, sem, quandra 594, bloco 03 ap 202 - Jardim Santana, porto velho - RO, CEP: 76828-058',	0.00,	'sem cebola',	'pendente',	'2025-07-22 15:33:08',	NULL)
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `total` = VALUES(`total`), `payment_method` = VALUES(`payment_method`), `customer_name` = VALUES(`customer_name`), `customer_phone` = VALUES(`customer_phone`), `delivery_address` = VALUES(`delivery_address`), `delivery_fee` = VALUES(`delivery_fee`), `observations` = VALUES(`observations`), `status` = VALUES(`status`), `created_at` = VALUES(`created_at`), `user_id` = VALUES(`user_id`);
+
+DROP TABLE IF EXISTS `stock_movements`;
+CREATE TABLE `stock_movements` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `product_id` int NOT NULL,
+  `movement_type` enum('in','out','adjustment') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `quantity` int NOT NULL,
+  `reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `reference_id` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `product_id` (`product_id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `stock_movements_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  CONSTRAINT `stock_movements_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `suppliers`;
+CREATE TABLE `suppliers` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `contact_person` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `email` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `address` text COLLATE utf8mb4_unicode_ci,
+  `cnpj` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `system_settings`;
+CREATE TABLE `system_settings` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `setting_key` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `setting_value` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `setting_key` (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `created_at`) VALUES
+(1,	'company_name',	'Minha Empresa',	'2025-06-23 00:23:00'),
+(2,	'company_phone',	'(11) 99999-9999',	'2025-06-23 00:23:00'),
+(3,	'company_address',	'Rua Example, 123 - São Paulo, SP',	'2025-06-23 00:23:00'),
+(4,	'delivery_fee',	'5.00',	'2025-06-23 00:23:00'),
+(5,	'min_delivery_value',	'20.00',	'2025-06-23 00:23:00'),
+(6,	'tax_rate',	'0.00',	'2025-06-23 00:23:00'),
+(7,	'currency',	'BRL',	'2025-06-23 00:23:00')
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `setting_key` = VALUES(`setting_key`), `setting_value` = VALUES(`setting_value`), `created_at` = VALUES(`created_at`);
+
+DROP TABLE IF EXISTS `user_sessions`;
+CREATE TABLE `user_sessions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `session_token` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_agent` text COLLATE utf8mb4_unicode_ci,
+  `login_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `logout_time` timestamp NULL DEFAULT NULL,
+  `active` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'employee',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `users` (`id`, `username`, `password`, `role`, `created_at`) VALUES
+(1,	'admin',	'$2y$10$JrafrzIlnKBq/eTDABr0S.42oKLPWwcDfzEJztfqgd4mfxAn03TvC',	'admin',	'2025-06-23 00:22:52')
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `username` = VALUES(`username`), `password` = VALUES(`password`), `role` = VALUES(`role`), `created_at` = VALUES(`created_at`);
+
+-- 2025-08-06 01:39:45

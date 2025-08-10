@@ -1,0 +1,141 @@
+<?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+?>
+
+<?php
+require 'conexao.php';
+
+// Valida e captura o ID
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+// Verifica se o ID foi passado
+if (!$id) {
+    die("ID do pedido não informado.");
+}
+
+// Buscar dados da venda
+$stmt = $pdo->prepare("SELECT * FROM sales WHERE id = ?");
+$stmt->execute([$id]);
+$sale = $stmt->fetch();
+
+// Buscar itens da venda
+$stmt = $pdo->prepare("SELECT si.*, p.name FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?");
+$stmt->execute([$id]);
+$items = $stmt->fetchAll();
+?>
+
+<style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        .cupom-fiscal, .cupom-fiscal * {
+            visibility: visible;
+        }
+        .cupom-fiscal {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .no-print {
+            display: none !important;
+        }
+        .cupom-header {
+            text-align: center;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+        }
+        .cupom-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .cupom-total {
+            border-top: 1px dashed #000;
+            margin-top: 10px;
+            padding-top: 10px;
+            font-weight: bold;
+        }
+        .cupom-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+    }
+   .cupom-print {
+     display: visible;
+    }
+    
+</style>
+
+<div class="cupom-print cupom-fiscal" id="cupomFiscal">
+    <div class="cupom-header">
+        <h3>MUNDO DA CARNE</h3>
+        <p>CNPJ: 00.000.000/0001-00</p>
+        <p>Endereço: Av Mamoré, 3180 - Centro</p>
+        <p>Telefone: (00) 0000-0000</p>
+        <p>--------------------------------</p>
+        <p>CUPOM NÃO FISCAL</p>
+        <p>PEDIDO Nº <?= htmlspecialchars($sale['id']) ?></p>
+        <p>Data: <?= date('d/m/Y H:i', strtotime($sale['created_at'])) ?></p>
+    </div>
+
+    <div>
+        <p><strong>Cliente:</strong> <?= htmlspecialchars($sale['customer_name']) ?></p>
+        <p><strong>CPF/CNPJ:</strong> _______________________</p>
+        <p><strong>Endereço:</strong> <?= htmlspecialchars($sale['delivery_address']) ?></p>
+        <p>--------------------------------</p>
+    </div>
+
+    <div>
+        <?php foreach ($items as $item): ?>
+            <div class="cupom-item">
+                <span><?= htmlspecialchars($item['quantity']) ?> x <?= htmlspecialchars($item['name']) ?></span>
+                <span>R$ <?= number_format($item['price'] * $item['quantity'], 2, ',', '.') ?></span>
+            </div>
+            <div style="text-align: right;">
+                <small>(R$ <?= number_format($item['price'], 2, ',', '.') ?> un)</small>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="cupom-total">
+        <div class="cupom-item">
+            <span>Subtotal:</span>
+            <span>R$ <?= number_format($sale['total'] - $sale['delivery_fee'], 2, ',', '.') ?></span>
+        </div>
+        <div class="cupom-item">
+            <span>Taxa de Entrega:</span>
+            <span>R$ <?= number_format($sale['delivery_fee'], 2, ',', '.') ?></span>
+        </div>
+        <div class="cupom-item">
+            <span>TOTAL:</span>
+            <span>R$ <?= number_format($sale['total'], 2, ',', '.') ?></span>
+        </div>
+    </div>
+
+    <div>
+        <p>--------------------------------</p>
+        <p><strong>Forma de Pagamento:</strong> <?= ucfirst(htmlspecialchars($sale['payment_method'])) ?></p>
+        <p>--------------------------------</p>
+    </div>
+
+    <div class="cupom-footer">
+        <p>Obrigado pela preferência!</p>
+        <p>Volte sempre</p>
+        <p><?= date('d/m/Y H:i:s') ?></p>
+    </div>
+</div>
+
+<script>
+    window.onload = function () {
+        window.print();
+        setTimeout(() => window.close(), 200);
+    };
+</script>
